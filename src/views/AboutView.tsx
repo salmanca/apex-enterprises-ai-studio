@@ -10,7 +10,7 @@ export const AboutView: React.FC = () => {
       {/* Header */}
       <div className="bg-slate-900 text-white rounded-3xl p-8 sm:p-12 border border-slate-800 shadow-xl space-y-4">
         <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">
-          Since 2009 • 15+ Years of Service
+          Since 2013 • 13+ Years of Service
         </span>
         <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
           About Apex Enterprises

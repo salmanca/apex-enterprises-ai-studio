@@ -5,6 +5,60 @@ import { db, AdminUser } from './db.js';
 
 const JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'apex-enterprises-secure-admin-secret-key-2026';
 
+// In-memory rate limiting tracker for failed attempts
+interface FailedAttemptInfo {
+  count: number;
+  lockedUntil?: number;
+}
+const loginAttempts: Map<string, FailedAttemptInfo> = new Map();
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+export function checkLoginRateLimit(identifier: string): { isLocked: boolean; waitSeconds?: number } {
+  const key = identifier.toLowerCase().trim();
+  const attempt = loginAttempts.get(key);
+  if (!attempt) return { isLocked: false };
+
+  if (attempt.lockedUntil && attempt.lockedUntil > Date.now()) {
+    const waitSeconds = Math.ceil((attempt.lockedUntil - Date.now()) / 1000);
+    return { isLocked: true, waitSeconds };
+  }
+
+  // Lockout expired, reset if needed
+  if (attempt.lockedUntil && attempt.lockedUntil <= Date.now()) {
+    loginAttempts.delete(key);
+  }
+
+  return { isLocked: false };
+}
+
+export function recordFailedLoginAttempt(identifier: string): { remainingAttempts: number; isLocked: boolean; waitSeconds?: number } {
+  const key = identifier.toLowerCase().trim();
+  const attempt = loginAttempts.get(key) || { count: 0 };
+  attempt.count += 1;
+
+  if (attempt.count >= MAX_FAILED_ATTEMPTS) {
+    attempt.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+    loginAttempts.set(key, attempt);
+    return {
+      remainingAttempts: 0,
+      isLocked: true,
+      waitSeconds: Math.ceil(LOCKOUT_DURATION_MS / 1000)
+    };
+  }
+
+  loginAttempts.set(key, attempt);
+  return {
+    remainingAttempts: MAX_FAILED_ATTEMPTS - attempt.count,
+    isLocked: false
+  };
+}
+
+export function clearLoginAttempts(identifier: string): void {
+  const key = identifier.toLowerCase().trim();
+  loginAttempts.delete(key);
+}
+
 export interface AuthRequest extends Request {
   user?: {
     id: string;
@@ -68,4 +122,14 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
   } catch (err) {
     res.status(401).json({ error: 'Unauthorized or expired session token. Please log in again.' });
   }
+}
+
+export function requireSuperAdmin(req: AuthRequest, res: Response, next: NextFunction): void {
+  requireAdmin(req, res, () => {
+    if (req.user?.role !== 'super_admin') {
+      res.status(403).json({ error: 'Forbidden. Super Administrator privileges required for this action.' });
+      return;
+    }
+    next();
+  });
 }

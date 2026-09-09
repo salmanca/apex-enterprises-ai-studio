@@ -10,6 +10,7 @@ export interface AdminUser {
   role: 'super_admin' | 'admin';
   createdAt: string;
   updatedAt: string;
+  lastLoginAt?: string;
 }
 
 export interface Category {
@@ -820,6 +821,27 @@ class Database {
     return this.data.adminUsers.find(u => u.id === id);
   }
 
+  getAllUsers(): Array<Omit<AdminUser, 'passwordHash'>> {
+    return this.data.adminUsers.map(({ passwordHash, ...user }) => ({ ...user }));
+  }
+
+  updateUserProfile(id: string, name: string, email: string): { user?: Omit<AdminUser, 'passwordHash'>; error?: string } {
+    const user = this.data.adminUsers.find(u => u.id === id);
+    if (!user) return { error: 'User not found' };
+
+    // Check if email is used by another user
+    const existing = this.data.adminUsers.find(u => u.id !== id && u.email.toLowerCase() === email.toLowerCase());
+    if (existing) return { error: 'An administrator account with this email already exists' };
+
+    user.name = name.trim();
+    user.email = email.trim().toLowerCase();
+    user.updatedAt = new Date().toISOString();
+    this.persist();
+
+    const { passwordHash, ...sanitized } = user;
+    return { user: sanitized };
+  }
+
   updateUserPassword(id: string, newPasswordHash: string): boolean {
     const user = this.data.adminUsers.find(u => u.id === id);
     if (!user) return false;
@@ -827,6 +849,53 @@ class Database {
     user.updatedAt = new Date().toISOString();
     this.persist();
     return true;
+  }
+
+  updateUserLastLogin(id: string): void {
+    const user = this.data.adminUsers.find(u => u.id === id);
+    if (user) {
+      user.lastLoginAt = new Date().toISOString();
+      this.persist();
+    }
+  }
+
+  createAdminUser(data: { name: string; email: string; passwordHash: string; role: 'super_admin' | 'admin' }): { user?: Omit<AdminUser, 'passwordHash'>; error?: string } {
+    const existing = this.data.adminUsers.find(u => u.email.toLowerCase() === data.email.toLowerCase());
+    if (existing) return { error: 'An administrator with this email already exists' };
+
+    const newUser: AdminUser = {
+      id: `user-admin-${Date.now()}`,
+      name: data.name.trim(),
+      email: data.email.trim().toLowerCase(),
+      passwordHash: data.passwordHash,
+      role: data.role,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    this.data.adminUsers.push(newUser);
+    this.persist();
+
+    const { passwordHash, ...sanitized } = newUser;
+    return { user: sanitized };
+  }
+
+  deleteAdminUser(id: string): { success: boolean; error?: string } {
+    const index = this.data.adminUsers.findIndex(u => u.id === id);
+    if (index === -1) return { success: false, error: 'User not found' };
+
+    // Count how many super_admins are remaining
+    const userToDelete = this.data.adminUsers[index];
+    if (userToDelete.role === 'super_admin') {
+      const superAdmins = this.data.adminUsers.filter(u => u.role === 'super_admin');
+      if (superAdmins.length <= 1) {
+        return { success: false, error: 'Cannot remove the last Super Administrator account' };
+      }
+    }
+
+    this.data.adminUsers.splice(index, 1);
+    this.persist();
+    return { success: true };
   }
 
   // Categories

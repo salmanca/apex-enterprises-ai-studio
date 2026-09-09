@@ -7,20 +7,42 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, pass: string) => Promise<void>;
+  authNotice: string | null;
+  clearAuthNotice: () => void;
+  login: (email: string, pass: string, rememberMe?: boolean) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateCurrentUser: (user: AdminUser, newToken?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getStoredToken(): string | null {
+  return localStorage.getItem('apex_admin_token') || sessionStorage.getItem('apex_admin_token');
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AdminUser | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('apex_admin_token'));
+  const [token, setToken] = useState<string | null>(getStoredToken);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+
+  const clearAuthNotice = () => setAuthNotice(null);
+
+  const updateCurrentUser = (updatedUser: AdminUser, newToken?: string) => {
+    setUser(updatedUser);
+    if (newToken) {
+      setToken(newToken);
+      if (localStorage.getItem('apex_admin_token')) {
+        localStorage.setItem('apex_admin_token', newToken);
+      } else {
+        sessionStorage.setItem('apex_admin_token', newToken);
+      }
+    }
+  };
 
   const refreshUser = async () => {
-    const savedToken = localStorage.getItem('apex_admin_token');
+    const savedToken = getStoredToken();
     if (!savedToken) {
       setUser(null);
       setToken(null);
@@ -34,6 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(savedToken);
     } catch {
       localStorage.removeItem('apex_admin_token');
+      sessionStorage.removeItem('apex_admin_token');
       setUser(null);
       setToken(null);
     } finally {
@@ -43,19 +66,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     refreshUser();
+
+    // Listen for unauthorized 401 events dispatched from API client
+    const handleUnauthorized = (e: Event) => {
+      const customEv = e as CustomEvent<{ message?: string }>;
+      localStorage.removeItem('apex_admin_token');
+      sessionStorage.removeItem('apex_admin_token');
+      setUser(null);
+      setToken(null);
+      setAuthNotice(customEv.detail?.message || 'Your administrator session has expired. Please sign in again.');
+    };
+
+    window.addEventListener('apex:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('apex:unauthorized', handleUnauthorized);
+    };
   }, []);
 
-  const login = async (email: string, pass: string) => {
+  const login = async (email: string, pass: string, rememberMe: boolean = true) => {
     const data = await api.login(email, pass);
-    localStorage.setItem('apex_admin_token', data.token);
+    if (rememberMe) {
+      localStorage.setItem('apex_admin_token', data.token);
+      sessionStorage.removeItem('apex_admin_token');
+    } else {
+      sessionStorage.setItem('apex_admin_token', data.token);
+      localStorage.removeItem('apex_admin_token');
+    }
     setToken(data.token);
     setUser(data.user);
+    setAuthNotice(null);
   };
 
   const logout = () => {
     localStorage.removeItem('apex_admin_token');
+    sessionStorage.removeItem('apex_admin_token');
     setToken(null);
     setUser(null);
+    setAuthNotice(null);
   };
 
   return (
@@ -64,9 +111,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       token,
       isAuthenticated: Boolean(token && user),
       isLoading,
+      authNotice,
+      clearAuthNotice,
       login,
       logout,
-      refreshUser
+      refreshUser,
+      updateCurrentUser
     }}>
       {children}
     </AuthContext.Provider>

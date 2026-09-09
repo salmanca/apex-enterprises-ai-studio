@@ -3,7 +3,17 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { db } from './db.js';
-import { generateToken, verifyPassword, hashPassword, requireAdmin, AuthRequest } from './auth.js';
+import { 
+  generateToken, 
+  verifyPassword, 
+  hashPassword, 
+  requireAdmin, 
+  requireSuperAdmin, 
+  checkLoginRateLimit, 
+  recordFailedLoginAttempt, 
+  clearLoginAttempts, 
+  AuthRequest 
+} from './auth.js';
 
 export const apiRouter = express.Router();
 
@@ -165,7 +175,7 @@ apiRouter.post('/analytics/event', (req, res) => {
 });
 
 // -------------------------------------------------------------
-// ADMIN AUTHENTICATION
+// ADMIN AUTHENTICATION & SECURITY
 // -------------------------------------------------------------
 
 apiRouter.post('/auth/login', (req, res) => {
@@ -175,17 +185,56 @@ apiRouter.post('/auth/login', (req, res) => {
     return;
   }
 
+  // Check brute force rate limit
+  const rateLimit = checkLoginRateLimit(email);
+  if (rateLimit.isLocked) {
+    res.status(429).json({
+      error: `Account temporarily locked due to repeated failed login attempts. Please wait ${rateLimit.waitSeconds} seconds before trying again.`,
+      isLocked: true,
+      waitSeconds: rateLimit.waitSeconds
+    });
+    return;
+  }
+
   const user = db.getUserByEmail(email);
   if (!user) {
-    res.status(401).json({ error: 'Invalid administrator email or password' });
+    const attempt = recordFailedLoginAttempt(email);
+    if (attempt.isLocked) {
+      res.status(429).json({
+        error: `Too many failed login attempts. Account temporarily locked for 5 minutes.`,
+        isLocked: true,
+        waitSeconds: attempt.waitSeconds
+      });
+    } else {
+      res.status(401).json({ 
+        error: `Invalid administrator email or password (${attempt.remainingAttempts} attempts remaining).`,
+        remainingAttempts: attempt.remainingAttempts
+      });
+    }
     return;
   }
 
   const isValid = verifyPassword(password, user.passwordHash);
   if (!isValid) {
-    res.status(401).json({ error: 'Invalid administrator email or password' });
+    const attempt = recordFailedLoginAttempt(email);
+    if (attempt.isLocked) {
+      res.status(429).json({
+        error: `Too many failed login attempts. Account temporarily locked for 5 minutes.`,
+        isLocked: true,
+        waitSeconds: attempt.waitSeconds
+      });
+    } else {
+      res.status(401).json({ 
+        error: `Invalid administrator email or password (${attempt.remainingAttempts} attempts remaining).`,
+        remainingAttempts: attempt.remainingAttempts
+      });
+    }
     return;
   }
+
+  // Clear failed attempts on success
+  clearLoginAttempts(email);
+  db.updateUserLastLogin(user.id);
 
   const token = generateToken(user);
   res.json({
@@ -194,13 +243,61 @@ apiRouter.post('/auth/login', (req, res) => {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      lastLoginAt: new Date().toISOString(),
+      createdAt: user.createdAt
     }
   });
 });
 
 apiRouter.get('/auth/me', requireAdmin, (req: AuthRequest, res) => {
-  res.json({ user: req.user });
+  const user = db.getUserById(req.user!.id);
+  if (!user) {
+    res.status(401).json({ error: 'User no longer exists' });
+    return;
+  }
+
+  res.json({
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      lastLoginAt: user.lastLoginAt,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }
+  });
+});
+
+apiRouter.put('/auth/profile', requireAdmin, (req: AuthRequest, res) => {
+  const { name, email } = req.body;
+  if (!name || !email) {
+    res.status(400).json({ error: 'Name and email are required' });
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    res.status(400).json({ error: 'Please provide a valid email address' });
+    return;
+  }
+
+  const result = db.updateUserProfile(req.user!.id, name, email);
+  if (result.error) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  // Re-generate token with updated details
+  const updatedUser = db.getUserById(req.user!.id)!;
+  const newToken = generateToken(updatedUser);
+
+  res.json({
+    message: 'Profile updated successfully',
+    token: newToken,
+    user: result.user
+  });
 });
 
 apiRouter.post('/auth/change-password', requireAdmin, (req: AuthRequest, res) => {
@@ -229,6 +326,66 @@ apiRouter.post('/auth/change-password', requireAdmin, (req: AuthRequest, res) =>
   const newHash = hashPassword(newPassword);
   db.updateUserPassword(user.id, newHash);
   res.json({ status: 'ok', message: 'Password updated successfully' });
+});
+
+// -------------------------------------------------------------
+// ADMIN TEAM MANAGEMENT (SUPER ADMIN)
+// -------------------------------------------------------------
+
+apiRouter.get('/admin/team', requireAdmin, (_req: AuthRequest, res) => {
+  const team = db.getAllUsers();
+  res.json(team);
+});
+
+apiRouter.post('/admin/team', requireSuperAdmin, (req: AuthRequest, res) => {
+  const { name, email, password, role } = req.body;
+  if (!name || !email || !password) {
+    res.status(400).json({ error: 'Name, email, and password are required' });
+    return;
+  }
+
+  if (password.length < 6) {
+    res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    res.status(400).json({ error: 'Please provide a valid email address' });
+    return;
+  }
+
+  const validRole = role === 'super_admin' ? 'super_admin' : 'admin';
+  const passwordHash = hashPassword(password);
+  const result = db.createAdminUser({
+    name,
+    email,
+    passwordHash,
+    role: validRole
+  });
+
+  if (result.error) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  res.status(201).json(result.user);
+});
+
+apiRouter.delete('/admin/team/:id', requireSuperAdmin, (req: AuthRequest, res) => {
+  const targetId = req.params.id;
+  if (req.user!.id === targetId) {
+    res.status(400).json({ error: 'You cannot delete your own administrator account' });
+    return;
+  }
+
+  const result = db.deleteAdminUser(targetId);
+  if (!result.success) {
+    res.status(400).json({ error: result.error || 'Failed to delete administrator' });
+    return;
+  }
+
+  res.json({ status: 'ok', message: 'Administrator account removed successfully' });
 });
 
 // -------------------------------------------------------------

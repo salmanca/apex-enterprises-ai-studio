@@ -108,7 +108,10 @@ export interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: 'super_admin' | 'admin' | string;
+  createdAt?: string;
+  updatedAt?: string;
+  lastLoginAt?: string;
 }
 
 export interface DashboardStats {

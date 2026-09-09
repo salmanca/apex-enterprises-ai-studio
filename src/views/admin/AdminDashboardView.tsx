@@ -30,12 +30,20 @@ import {
   ArrowUpDown,
   CheckCircle2,
   XCircle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ShieldCheck,
+  ShieldAlert,
+  Key,
+  Users,
+  UserPlus,
+  EyeOff,
+  Clock,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useSite } from '../../context/SiteContext';
 import { api } from '../../api/client';
-import { Product, Category, Brand, Store, SiteSettings } from '../../types';
+import { Product, Category, Brand, Store, SiteSettings, AdminUser } from '../../types';
 
 interface AdminDashboardViewProps {
   initialSubview?: string;
@@ -50,7 +58,7 @@ const APPLIANCE_OPTIONS = [
 ];
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialSubview = 'dashboard' }) => {
-  const { logout, user } = useAuth();
+  const { logout, user, updateCurrentUser } = useAuth();
   const { navigateTo, settings, refreshSettings } = useSite();
   const [activeTab, setActiveTab] = useState(initialSubview);
 
@@ -61,6 +69,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialS
   const [stores, setStores] = useState<Store[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Security & Admin Profile states
+  const [profileName, setProfileName] = useState(user?.name || '');
+  const [profileEmail, setProfileEmail] = useState(user?.email || '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Change Password states
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Admin Team states
+  const [teamMembers, setTeamMembers] = useState<AdminUser[]>([]);
+  const [isLoadingTeam, setIsLoadingTeam] = useState(false);
+  const [isAddTeamModalOpen, setIsAddTeamModalOpen] = useState(false);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamEmail, setNewTeamEmail] = useState('');
+  const [newTeamPassword, setNewTeamPassword] = useState('');
+  const [newTeamRole, setNewTeamRole] = useState<'admin' | 'super_admin'>('admin');
+  const [isSavingTeamMember, setIsSavingTeamMember] = useState(false);
+  const [teamFormError, setTeamFormError] = useState<string | null>(null);
 
   // Modals
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -111,7 +144,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialS
 
   // In-app Delete Confirmation Dialog State (avoids blocked window.confirm in iframes)
   const [deleteTarget, setDeleteTarget] = useState<{
-    type: 'product' | 'category' | 'brand' | 'store';
+    type: 'product' | 'category' | 'brand' | 'store' | 'admin';
     id: string;
     name: string;
     warning?: string;
@@ -510,6 +543,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialS
           setEditingStore(null);
         }
         showNotification('success', `Store branch "${deleteTarget.name}" deleted successfully.`);
+      } else if (deleteTarget.type === 'admin') {
+        await api.deleteAdminTeamMember(deleteTarget.id);
+        setTeamMembers(prev => prev.filter(m => m.id !== deleteTarget.id));
+        showNotification('success', `Administrator account "${deleteTarget.name}" removed successfully.`);
       }
       setDeleteTarget(null);
       // Background re-fetch to ensure counts and stats update
@@ -519,6 +556,152 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialS
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // --- LOAD ADMIN TEAM ---
+  const loadTeamMembers = async () => {
+    try {
+      setIsLoadingTeam(true);
+      const list = await api.getAdminTeam();
+      setTeamMembers(list);
+    } catch (err: any) {
+      console.error('Failed to load admin team', err);
+    } finally {
+      setIsLoadingTeam(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'security') {
+      loadTeamMembers();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.name || '');
+      setProfileEmail(user.email || '');
+    }
+  }, [user]);
+
+  // --- SAVE ADMIN PROFILE ---
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileName.trim() || !profileEmail.trim()) {
+      showNotification('error', 'Administrator name and email are required');
+      return;
+    }
+
+    try {
+      setIsSavingProfile(true);
+      const res = await api.updateProfile(profileName.trim(), profileEmail.trim());
+      updateCurrentUser(res.user, res.token);
+      showNotification('success', 'Administrator profile details updated successfully.');
+      loadTeamMembers();
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to update profile');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  // --- CHANGE PASSWORD ---
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword || !newPassword) {
+      showNotification('error', 'Please enter both your current password and new password');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      showNotification('error', 'New password must be at least 6 characters long');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showNotification('error', 'New passwords do not match. Please verify.');
+      return;
+    }
+
+    try {
+      setIsChangingPassword(true);
+      await api.changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      showNotification('success', 'Administrator password updated securely.');
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Password strength calculation for live visual meter
+  const passwordStrength = useMemo(() => {
+    if (!newPassword) return { score: 0, label: 'Not entered', color: 'bg-slate-200', text: 'text-slate-400' };
+    let score = 0;
+    if (newPassword.length >= 6) score += 1;
+    if (newPassword.length >= 10) score += 1;
+    if (/[0-9]/.test(newPassword)) score += 1;
+    if (/[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword)) score += 1;
+    if (/[^A-Za-z0-9]/.test(newPassword)) score += 1;
+
+    if (score <= 1) return { score: 1, label: 'Very Weak', color: 'bg-red-500', text: 'text-red-600' };
+    if (score === 2) return { score: 2, label: 'Weak', color: 'bg-amber-500', text: 'text-amber-600' };
+    if (score === 3) return { score: 3, label: 'Fair', color: 'bg-yellow-500', text: 'text-yellow-600' };
+    if (score === 4) return { score: 4, label: 'Good', color: 'bg-blue-500', text: 'text-blue-600' };
+    return { score: 5, label: 'Strong & Secure', color: 'bg-emerald-500', text: 'text-emerald-600' };
+  }, [newPassword]);
+
+  // --- ADD ADMIN TEAM MEMBER ---
+  const handleCreateTeamMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTeamFormError(null);
+
+    if (!newTeamName.trim() || !newTeamEmail.trim() || !newTeamPassword) {
+      setTeamFormError('Please complete all required fields');
+      return;
+    }
+
+    if (newTeamPassword.length < 6) {
+      setTeamFormError('Password must be at least 6 characters');
+      return;
+    }
+
+    try {
+      setIsSavingTeamMember(true);
+      const created = await api.createAdminTeamMember({
+        name: newTeamName.trim(),
+        email: newTeamEmail.trim(),
+        password: newTeamPassword,
+        role: newTeamRole
+      });
+      setTeamMembers(prev => [...prev, created]);
+      setIsAddTeamModalOpen(false);
+      setNewTeamName('');
+      setNewTeamEmail('');
+      setNewTeamPassword('');
+      setNewTeamRole('admin');
+      showNotification('success', `Administrator "${created.name}" added successfully.`);
+    } catch (err: any) {
+      setTeamFormError(err.message || 'Failed to add administrator');
+    } finally {
+      setIsSavingTeamMember(false);
+    }
+  };
+
+  const handleDeleteAdminClick = (member: AdminUser) => {
+    if (member.id === user?.id) {
+      showNotification('error', 'You cannot delete your own active administrator account.');
+      return;
+    }
+    setDeleteTarget({
+      type: 'admin',
+      id: member.id,
+      name: `${member.name} (${member.email})`,
+      warning: `This will permanently revoke ${member.name}'s administrative console privileges and invalidate all existing sessions.`
+    });
   };
 
   // --- SETTINGS SAVE ---
@@ -671,22 +854,37 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialS
               </div>
             </div>
 
-            <div className="flex items-center gap-4 text-xs">
-              <span className="text-slate-400 hidden sm:inline">
-                Signed in as: <strong className="text-white">{user?.email || 'admin@apexenterprises.com'}</strong>
-              </span>
+            <div className="flex items-center gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('security')}
+                className="text-slate-400 hover:text-white transition-colors hidden sm:flex items-center gap-2 bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700/60 cursor-pointer"
+                title="Account Security & Access Control"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate max-w-[200px]">
+                  <strong className="text-white">{user?.name || user?.email || 'admin@apexenterprises.com'}</strong>
+                </span>
+                {user?.role && (
+                  <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded font-bold font-mono ${
+                    user.role === 'super_admin' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                  }`}>
+                    {user.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                  </span>
+                )}
+              </button>
 
               <button
                 onClick={() => navigateTo({ name: 'home' })}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>View Live Website</span>
+                <span>View Live Site</span>
               </button>
 
               <button
                 onClick={handleLogout}
-                className="px-3 py-1.5 rounded-lg bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/40 flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-red-950/40 text-red-400 hover:bg-red-900/60 border border-red-800/40 flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Sign Out</span>
@@ -703,6 +901,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialS
               { id: 'brands', label: `Brands (${brands.length})`, icon: Bookmark },
               { id: 'stores', label: `Stores (${stores.length})`, icon: MapPin },
               { id: 'settings', label: 'Site Settings', icon: Settings },
+              { id: 'security', label: 'Security & Admins', icon: ShieldCheck },
             ].map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -1812,6 +2011,405 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialS
                 </form>
               </div>
             )}
+
+            {/* 7. SECURITY & ACCESS SUBVIEW */}
+            {activeTab === 'security' && (
+              <div className="space-y-6 animate-in fade-in duration-150">
+                {/* Header Banner */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-black text-slate-900 text-lg tracking-tight">Security & Administrator Access</h2>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                          Active Protection
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Manage your profile, rotate credentials with instant strength validation, and audit team access permissions.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddTeamModalOpen(true)}
+                      className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Add Administrator</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Grid: Profile & Password */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Card 1: Administrator Profile */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-amber-600" />
+                        <h3 className="font-bold text-slate-900 text-sm">Administrator Profile</h3>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                        user?.role === 'super_admin' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {user?.role === 'super_admin' ? 'Super Administrator' : 'Administrator'}
+                      </span>
+                    </div>
+
+                    <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
+                      <div>
+                        <label className="block font-bold text-slate-700 uppercase mb-1">Full Display Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={profileName}
+                          onChange={(e) => setProfileName(e.target.value)}
+                          className="w-full text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          placeholder="e.g., Mohammed Salman Faris"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 uppercase mb-1">Administrator Email *</label>
+                        <input
+                          type="email"
+                          required
+                          value={profileEmail}
+                          onChange={(e) => setProfileEmail(e.target.value)}
+                          className="w-full text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                          placeholder="admin@apexenterprises.com"
+                        />
+                      </div>
+
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-[11px] text-slate-600 space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Account ID:</span>
+                          <span className="font-mono text-slate-700">{user?.id || 'admin-01'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Last Session Login:</span>
+                          <span className="text-slate-700">
+                            {user?.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Active Current Session'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Token Validity:</span>
+                          <span className="text-emerald-700 font-semibold">24h Rolling JWT</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          disabled={isSavingProfile}
+                          className="w-full sm:w-auto px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {isSavingProfile ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Updating Profile...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-3.5 h-3.5" />
+                              <span>Save Profile Details</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Card 2: Password Security & Rotation */}
+                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Key className="w-4 h-4 text-amber-600" />
+                        <h3 className="font-bold text-slate-900 text-sm">Change Administrator Password</h3>
+                      </div>
+                      <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium">
+                        <Clock className="w-3 h-3" />
+                        Bcrypt Hashed
+                      </span>
+                    </div>
+
+                    <form onSubmit={handleChangePassword} className="space-y-3.5 text-xs">
+                      <div>
+                        <label className="block font-bold text-slate-700 uppercase mb-1">Current Password *</label>
+                        <div className="relative">
+                          <input
+                            type={showCurrentPassword ? 'text' : 'password'}
+                            required
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            className="w-full text-sm border border-slate-300 rounded-xl pl-3 pr-10 py-2.5 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                            placeholder="Enter current password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                          >
+                            {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 uppercase mb-1">New Password *</label>
+                        <div className="relative">
+                          <input
+                            type={showNewPassword ? 'text' : 'password'}
+                            required
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full text-sm border border-slate-300 rounded-xl pl-3 pr-10 py-2.5 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                            placeholder="Minimum 6 characters"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                          >
+                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+
+                        {/* Password Strength Indicator */}
+                        {newPassword && (
+                          <div className="mt-2 space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-slate-500">Password Strength:</span>
+                              <span className={`font-bold ${passwordStrength.text}`}>{passwordStrength.label}</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden flex gap-1">
+                              {[1, 2, 3, 4, 5].map((lvl) => (
+                                <div
+                                  key={lvl}
+                                  className={`h-full flex-1 rounded-full transition-all duration-200 ${
+                                    lvl <= passwordStrength.score ? passwordStrength.color : 'bg-slate-200'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-500 pt-0.5">
+                              <span className={newPassword.length >= 6 ? 'text-emerald-600 font-semibold' : ''}>
+                                {newPassword.length >= 6 ? '✓' : '○'} At least 6 characters
+                              </span>
+                              <span className={/[0-9]/.test(newPassword) ? 'text-emerald-600 font-semibold' : ''}>
+                                {/[0-9]/.test(newPassword) ? '✓' : '○'} Contains number
+                              </span>
+                              <span className={/[A-Z]/.test(newPassword) ? 'text-emerald-600 font-semibold' : ''}>
+                                {/[A-Z]/.test(newPassword) ? '✓' : '○'} Capital letter
+                              </span>
+                              <span className={/[^A-Za-z0-9]/.test(newPassword) ? 'text-emerald-600 font-semibold' : ''}>
+                                {/[^A-Za-z0-9]/.test(newPassword) ? '✓' : '○'} Special character
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block font-bold text-slate-700 uppercase">Confirm New Password *</label>
+                          {confirmPassword && (
+                            <span className={`text-[10px] font-bold ${
+                              confirmPassword === newPassword ? 'text-emerald-600' : 'text-red-500'
+                            }`}>
+                              {confirmPassword === newPassword ? '✓ Passwords Match' : '✗ Does Not Match'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            required
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full text-sm border border-slate-300 rounded-xl pl-3 pr-10 py-2.5 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
+                            placeholder="Re-enter new password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          disabled={isChangingPassword || !currentPassword || !newPassword || newPassword !== confirmPassword}
+                          className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {isChangingPassword ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Updating Password...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Key className="w-3.5 h-3.5" />
+                              <span>Update Password Securely</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Team Access Management Table */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-amber-600" />
+                        <h3 className="font-bold text-slate-900 text-sm">Authorized Administrator Accounts ({teamMembers.length})</h3>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Team members who can authenticate into this Apex Enterprises management console.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsAddTeamModalOpen(true)}
+                      className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>+ Add New Admin</span>
+                    </button>
+                  </div>
+
+                  {isLoadingTeam ? (
+                    <div className="p-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                      <span>Loading team accounts...</span>
+                    </div>
+                  ) : teamMembers.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400 text-xs">
+                      No additional administrator accounts registered.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px]">
+                            <th className="pb-2.5">Administrator</th>
+                            <th className="pb-2.5">Email Address</th>
+                            <th className="pb-2.5">Role</th>
+                            <th className="pb-2.5">Last Login</th>
+                            <th className="pb-2.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {teamMembers.map((member) => {
+                            const isCurrentUser = member.id === user?.id || member.email.toLowerCase() === user?.email.toLowerCase();
+                            return (
+                              <tr key={member.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="py-3 font-medium text-slate-900">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 font-bold flex items-center justify-center text-xs shrink-0">
+                                      {member.name ? member.name.charAt(0).toUpperCase() : 'A'}
+                                    </div>
+                                    <div>
+                                      <span className="font-bold text-slate-900 block">{member.name}</span>
+                                      {isCurrentUser && (
+                                        <span className="text-[10px] text-amber-600 font-bold block">Current Session</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 font-mono text-slate-600 text-[11px]">
+                                  {member.email}
+                                </td>
+                                <td className="py-3">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                    member.role === 'super_admin' 
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-200' 
+                                      : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                  }`}>
+                                    {member.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                                  </span>
+                                </td>
+                                <td className="py-3 text-slate-500 text-[11px]">
+                                  {member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  }) : '—'}
+                                </td>
+                                <td className="py-3 text-right">
+                                  {isCurrentUser ? (
+                                    <span className="text-[10px] bg-slate-100 text-slate-500 font-semibold px-2 py-1 rounded-md">
+                                      You
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteAdminClick(member)}
+                                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                      title="Revoke administrator access"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Security Status & Safeguards Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Brute-Force Shield</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      5 failed attempts initiates an automatic 5-minute security lockout to protect against unauthorized password guessing.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                      <Key className="w-4 h-4 text-amber-600" />
+                      <span>Bcrypt Salt Encryption</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Credentials are salted and hashed cryptographically before disk storage. Plaintext passwords are never stored.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-white rounded-xl border border-slate-200 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                      <Clock className="w-4 h-4 text-blue-600" />
+                      <span>Session Token Integrity</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Sessions automatically expire after 24 hours. The application intercepts expired tokens cleanly with no data loss.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
@@ -2751,6 +3349,113 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialS
         </div>
       )}
 
+      {/* --- MODAL: ADD ADMINISTRATOR TEAM MEMBER --- */}
+      {isAddTeamModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <h3 className="font-bold text-slate-900 text-base">Add Administrator Account</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => { setIsAddTeamModalOpen(false); setTeamFormError(null); }} 
+                className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {teamFormError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                <span>{teamFormError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateTeamMember} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-amber-500 outline-none"
+                  placeholder="e.g., Alex Johnson"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={newTeamEmail}
+                  onChange={(e) => setNewTeamEmail(e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-amber-500 outline-none"
+                  placeholder="alex@apexenterprises.com"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Temporary Initial Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={newTeamPassword}
+                  onChange={(e) => setNewTeamPassword(e.target.value)}
+                  className="w-full text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-amber-500 outline-none"
+                  placeholder="Minimum 6 characters"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">Access Role *</label>
+                <select
+                  value={newTeamRole}
+                  onChange={(e) => setNewTeamRole(e.target.value as 'admin' | 'super_admin')}
+                  className="w-full text-sm border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-amber-500 outline-none bg-white"
+                >
+                  <option value="admin">Administrator (Catalogue, Inventory & Store Management)</option>
+                  <option value="super_admin">Super Administrator (Full System & User Control)</option>
+                </select>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => { setIsAddTeamModalOpen(false); setTeamFormError(null); }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingTeamMember}
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg shadow-xs text-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSavingTeamMember ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Creating Account...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Create Administrator</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* --- IN-APP DELETE CONFIRMATION MODAL --- */}
       {deleteTarget && (
         <div 
@@ -2767,7 +3472,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ initialS
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-slate-900 text-base">
-                  Delete {deleteTarget.type === 'product' ? 'Spare Part' : deleteTarget.type === 'category' ? 'Category' : deleteTarget.type === 'brand' ? 'Brand' : 'Store Location'}?
+                  Delete {deleteTarget.type === 'product' ? 'Spare Part' : deleteTarget.type === 'category' ? 'Category' : deleteTarget.type === 'brand' ? 'Brand' : deleteTarget.type === 'admin' ? 'Administrator Account' : 'Store Location'}?
                 </h3>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                   Are you sure you want to permanently delete <strong className="font-bold text-slate-900 break-words">"{deleteTarget.name}"</strong>?

@@ -10,6 +10,14 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+function handleAuthStatus(res: Response, data?: any) {
+  if (res.status === 401) {
+    window.dispatchEvent(new CustomEvent('apex:unauthorized', {
+      detail: { message: data?.error || 'Your administrator session has expired. Please sign in again.' }
+    }));
+  }
+}
+
 export const api = {
   // Public
   async getSettings(): Promise<SiteSettings> {
@@ -104,8 +112,26 @@ export const api = {
     const res = await fetch(`${API_BASE}/auth/me`, {
       headers: getAuthHeaders()
     });
-    if (!res.ok) throw new Error('Unauthorized');
-    return res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      handleAuthStatus(res, data);
+      throw new Error(data.error || 'Unauthorized');
+    }
+    return data;
+  },
+
+  async updateProfile(name: string, email: string): Promise<{ message: string; token: string; user: AdminUser }> {
+    const res = await fetch(`${API_BASE}/auth/profile`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name, email })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      handleAuthStatus(res, data);
+      throw new Error(data.error || 'Failed to update profile');
+    }
+    return data;
   },
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -115,7 +141,49 @@ export const api = {
       body: JSON.stringify({ currentPassword, newPassword })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to change password');
+    if (!res.ok) {
+      handleAuthStatus(res, data);
+      throw new Error(data.error || 'Failed to change password');
+    }
+  },
+
+  // Admin Team Management
+  async getAdminTeam(): Promise<AdminUser[]> {
+    const res = await fetch(`${API_BASE}/admin/team`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      handleAuthStatus(res, data);
+      throw new Error(data.error || 'Failed to fetch admin team');
+    }
+    return data;
+  },
+
+  async createAdminTeamMember(user: { name: string; email: string; password: string; role: 'super_admin' | 'admin' }): Promise<AdminUser> {
+    const res = await fetch(`${API_BASE}/admin/team`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(user)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      handleAuthStatus(res, data);
+      throw new Error(data.error || 'Failed to create administrator');
+    }
+    return data;
+  },
+
+  async deleteAdminTeamMember(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/admin/team/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      handleAuthStatus(res, data);
+      throw new Error(data.error || 'Failed to delete administrator');
+    }
   },
 
   // Admin Protected
