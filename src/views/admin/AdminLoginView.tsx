@@ -14,9 +14,14 @@ export const AdminLoginView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // If already authenticated, redirect
+  // If already authenticated, redirect safely in an effect
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigateTo({ name: 'admin', subview: 'dashboard' });
+    }
+  }, [isAuthenticated, navigateTo]);
+
   if (isAuthenticated) {
-    navigateTo({ name: 'admin', subview: 'dashboard' });
     return null;
   }
 

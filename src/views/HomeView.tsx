@@ -168,14 +168,14 @@ export const HomeView: React.FC = () => {
                     <MapPin className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-semibold text-white block">Main Flagship Counter</span>
-                      <span>Metro Trade Arcade, Central Industrial & Electronics Market, Mumbai</span>
+                      <span>#16, 17th F Cross, Indiranagar, Bangalore</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-amber-400" />
-                      <span>Mon – Sat: 9:30 AM – 8:30 PM</span>
+                      <span>Mon – Sat: 9:00 AM – 8:00 PM</span>
                     </div>
                     <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[11px] font-bold">Open Today</span>
                   </div>
@@ -183,10 +183,10 @@ export const HomeView: React.FC = () => {
                   <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-amber-400" />
-                      <span>Counter Helpline: {settings?.phone || '+91 98201 54321'}</span>
+                      <span>Counter Helpline: {settings?.phone || '+91 77601 31002'}</span>
                     </div>
                     <a
-                      href={`tel:${settings?.phone || '+919820154321'}`}
+                      href={`tel:${settings?.phone || '+917760131002'}`}
                       className="text-amber-400 hover:underline font-bold"
                     >
                       Call Now
@@ -521,7 +521,7 @@ export const HomeView: React.FC = () => {
               <span>Identify My Spare Part</span>
             </button>
             <a
-              href={`tel:${settings?.phone || '+919820154321'}`}
+              href={`tel:${settings?.phone || '+917760131002'}`}
               className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm flex items-center justify-center gap-2 border border-slate-600 transition-colors"
             >
               <Phone className="w-4 h-4 text-amber-400" />

@@ -63,11 +63,11 @@ export const Header: React.FC = () => {
             </button>
             <span className="text-slate-700 hidden md:inline">|</span>
             <a 
-              href={`tel:${settings?.phone || '+919820154321'}`}
+              href={`tel:${settings?.phone || '+917760131002'}`}
               className="flex items-center gap-1.5 hover:text-white text-slate-300 transition-colors"
             >
               <Phone className="w-3 h-3 text-amber-400" />
-              <span>{settings?.phone || '+91 98201 54321'}</span>
+              <span>{settings?.phone || '+91 77601 31002'}</span>
             </a>
             {isAuthenticated ? (
               <button

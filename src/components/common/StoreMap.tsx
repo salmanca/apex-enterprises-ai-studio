@@ -26,9 +26,9 @@ export const StoreMap: React.FC<StoreMapProps> = ({
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
-      // Default to Mumbai center or average of stores
-      const defaultLat = stores.length > 0 ? stores[0].latitude : 19.0760;
-      const defaultLng = stores.length > 0 ? stores[0].longitude : 72.8777;
+      // Default to Bangalore center or average of stores
+      const defaultLat = stores.length > 0 ? stores[0].latitude : 12.978975560275915;
+      const defaultLng = stores.length > 0 ? stores[0].longitude : 77.63321432490876;
 
       const map = L.map(mapContainerRef.current, {
         center: [defaultLat, defaultLng],

@@ -28,7 +28,7 @@ export const ContactView: React.FC = () => {
       `• Appliance: ${formData.appliance}\n` +
       `• Message: ${formData.message}`
     );
-    const wa = (settings?.whatsapp || '919820154321').replace(/[^0-9]/g, '');
+    const wa = (settings?.whatsapp || '917760131002').replace(/[^0-9]/g, '');
     window.open(`https://wa.me/${wa}?text=${text}`, '_blank');
     setSubmitted(true);
   };
@@ -59,10 +59,10 @@ export const ContactView: React.FC = () => {
                 <Phone className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-slate-800 block">Phone Support</span>
-                  <a href={`tel:${settings?.phone || '+919820154321'}`} className="text-slate-900 hover:text-amber-600 font-semibold">
-                    {settings?.phone || '+91 98201 54321'}
+                  <a href={`tel:${settings?.phone || '+917760131002'}`} className="text-slate-900 hover:text-amber-600 font-semibold">
+                    {settings?.phone || '+91 77601 31002'}
                   </a>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Mon - Sat: 9:30 AM to 8:30 PM</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Mon - Sat: 9:00 AM to 8:00 PM</p>
                 </div>
               </div>
 
@@ -71,12 +71,12 @@ export const ContactView: React.FC = () => {
                 <div>
                   <span className="font-bold text-slate-800 block">WhatsApp Sample Verification</span>
                   <a 
-                    href={`https://wa.me/${(settings?.whatsapp || '919820154321').replace(/[^0-9]/g, '')}`} 
+                    href={`https://wa.me/${(settings?.whatsapp || '917760131002').replace(/[^0-9]/g, '')}`} 
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-emerald-700 hover:underline font-semibold"
                   >
-                    {settings?.whatsapp || '+91 98201 54321'}
+                    {settings?.whatsapp || '+91 77601 31002'}
                   </a>
                   <p className="text-[11px] text-slate-500 mt-0.5">Send sample photos or appliance stickers</p>
                 </div>
@@ -86,8 +86,8 @@ export const ContactView: React.FC = () => {
                 <Mail className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-slate-800 block">Email Inquiries</span>
-                  <a href={`mailto:${settings?.email || 'info@apexenterprises.com'}`} className="text-slate-900 hover:underline font-medium">
-                    {settings?.email || 'info@apexenterprises.com'}
+                  <a href={`mailto:${settings?.email || 'info.apexbangalore@yahoo.com'}`} className="text-slate-900 hover:underline font-medium">
+                    {settings?.email || 'info.apexbangalore@yahoo.com'}
                   </a>
                 </div>
               </div>
@@ -96,7 +96,7 @@ export const ContactView: React.FC = () => {
                 <MapPin className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-slate-800 block">Headquarters & Central Counter</span>
-                  <p>{settings?.headquartersAddress || 'Metro Trade Arcade, Central Industrial & Electronics Market, Mumbai'}</p>
+                  <p>{settings?.headquartersAddress || '#16, 17th F Cross, Indiranagar, Bangalore'}</p>
                 </div>
               </div>
             </div>
@@ -166,7 +166,7 @@ export const ContactView: React.FC = () => {
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+91 98765 43210"
+                    placeholder="+91 77601 31002"
                     className="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500"
                   />
                 </div>

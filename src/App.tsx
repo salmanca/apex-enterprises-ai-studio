@@ -46,6 +46,9 @@ function AppContent() {
   }
 
   if (currentRoute.name === 'admin-login') {
+    if (isAuthenticated) {
+      return <AdminDashboardView initialSubview="dashboard" />;
+    }
     return <AdminLoginView />;
   }
 

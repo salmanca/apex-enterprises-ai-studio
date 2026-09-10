@@ -21,7 +21,7 @@ export const PartIdentifierModal: React.FC = () => {
       `• Part Needed: ${partDescription || 'Looking for replacement part'}\n\n` +
       `Please let me know availability at your nearest store.`
     );
-    const waNumber = (settings?.whatsapp || '919820154321').replace(/[^0-9]/g, '');
+    const waNumber = (settings?.whatsapp || '917760131002').replace(/[^0-9]/g, '');
     window.open(`https://wa.me/${waNumber}?text=${text}`, '_blank');
     setSubmitted(true);
   };
@@ -61,11 +61,11 @@ export const PartIdentifierModal: React.FC = () => {
               </p>
               <div className="pt-3 flex justify-center gap-3">
                 <a
-                  href={`tel:${settings?.phone || '+919820154321'}`}
+                  href={`tel:${settings?.phone || '+917760131002'}`}
                   className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg flex items-center gap-2"
                 >
                   <Phone className="w-4 h-4 text-amber-400" />
-                  Call Store: {settings?.phone || '+91 98201 54321'}
+                  Call Store: {settings?.phone || '+91 77601 31002'}
                 </a>
                 <button
                   onClick={() => {
@@ -155,7 +155,7 @@ export const PartIdentifierModal: React.FC = () => {
                   <span>Send to Technician on WhatsApp</span>
                 </button>
                 <a
-                  href={`tel:${settings?.phone || '+919820154321'}`}
+                  href={`tel:${settings?.phone || '+917760131002'}`}
                   className="py-3 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors"
                 >
                   <Phone className="w-4 h-4 text-amber-400" />

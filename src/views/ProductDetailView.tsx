@@ -267,7 +267,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ slug }) =>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <a
                 id="product-detail-call-btn"
-                href={`tel:${settings?.callToActionPhone || settings?.phone || '+919820154321'}`}
+                href={`tel:${settings?.callToActionPhone || settings?.phone || '+917760131002'}`}
                 className="py-3 px-3 bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors text-center"
               >
                 <Phone className="w-4 h-4 text-amber-600" />
@@ -276,7 +276,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ slug }) =>
 
               <a
                 id="product-detail-whatsapp-btn"
-                href={`https://wa.me/${(settings?.callToActionWhatsapp || settings?.whatsapp || '919820154321').replace(/[^0-9]/g, '')}?text=Hello%20Apex%20Enterprises,%20I%20am%20inquiring%20about%20in-store%20availability%20for%20part:%20${encodeURIComponent(product.name)}%20(SKU:%20${encodeURIComponent(product.sku || 'N/A')})`}
+                href={`https://wa.me/${(settings?.callToActionWhatsapp || settings?.whatsapp || '917760131002').replace(/[^0-9]/g, '')}?text=Hello%20Apex%20Enterprises,%20I%20am%20inquiring%20about%20in-store%20availability%20for%20part:%20${encodeURIComponent(product.name)}%20(SKU:%20${encodeURIComponent(product.sku || 'N/A')})`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="py-3 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors text-center"

@@ -43,7 +43,7 @@ export const Footer: React.FC = () => {
               View Store Coordinates
             </button>
             <a
-              href={`https://wa.me/${(settings?.whatsapp || '919820154321').replace(/[^0-9]/g, '')}?text=Hello%20Apex%20Enterprises,%20I%20need%20assistance%20with%20a%20spare%20part`}
+              href={`https://wa.me/${(settings?.whatsapp || '917760131002').replace(/[^0-9]/g, '')}?text=Hello%20Apex%20Enterprises,%20I%20need%20assistance%20with%20a%20spare%20part`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 font-medium border border-emerald-500/30 transition-colors"
@@ -194,29 +194,29 @@ export const Footer: React.FC = () => {
             <div className="space-y-2.5 text-xs text-slate-400">
               <div className="flex items-start gap-2">
                 <MapPin className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <span>{settings?.headquartersAddress || 'Metro Trade Arcade, Central Industrial & Electronics Market, Mumbai'}</span>
+                <span>{settings?.headquartersAddress || '#16, 17th F Cross, Indiranagar, Bangalore, 560038'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-amber-400 shrink-0" />
-                <a href={`tel:${settings?.phone || '+919820154321'}`} className="hover:text-white transition-colors">
-                  {settings?.phone || '+91 98201 54321'}
+                <a href={`tel:${settings?.phone || '+917760131002'}`} className="hover:text-white transition-colors">
+                  {settings?.phone || '+91 77601 31002'}
                 </a>
               </div>
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-emerald-400 shrink-0" />
                 <a 
-                  href={`https://wa.me/${(settings?.whatsapp || '919820154321').replace(/[^0-9]/g, '')}`}
+                  href={`https://wa.me/${(settings?.whatsapp || '917760131002').replace(/[^0-9]/g, '')}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors"
                 >
-                  WhatsApp: {settings?.whatsapp || '+91 98201 54321'}
+                  WhatsApp: {settings?.whatsapp || '+91 77601 31002'}
                 </a>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-amber-400 shrink-0" />
-                <a href={`mailto:${settings?.email || 'info@apexenterprises.com'}`} className="hover:text-white transition-colors">
-                  {settings?.email || 'info@apexenterprises.com'}
+                <a href={`mailto:${settings?.email || 'info.apexbangalore@yahoo.com'}`} className="hover:text-white transition-colors">
+                  {settings?.email || 'info.apexbangalore@yahoo.com'}
                 </a>
               </div>
             </div>
