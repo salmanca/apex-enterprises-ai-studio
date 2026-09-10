@@ -741,10 +741,10 @@ function getInitialData(): DatabaseSchema {
     businessName: 'Apex Enterprises',
     tagline: 'Your Trusted Appliance Spare Parts Partner',
     logo: '/assets/logo.png',
-    phone: '+91 98201 54321',
-    whatsapp: '+919820154321',
-    email: 'info@apexenterprises.com',
-    headquartersAddress: 'Metro Trade Arcade, Central Industrial & Electronics Market, Mumbai 400001',
+    phone: '+91 77601 31002',
+    whatsapp: '+917760131002',
+    email: 'info.apexbangalore@yahoo.com',
+    headquartersAddress: '#16, 17th F Cross, Indiranagar, Bangalore, 560038',
     homepageHeadline: 'Apex Enterprises',
     homepageSubheadline: 'Appliance Spare Parts for ACs, Washing Machines, Microwaves, Water Purifiers & Refrigerators',
     homepageSupportingText: 'Explore our spare parts catalogue and visit our nearest physical store.',
@@ -756,8 +756,8 @@ function getInitialData(): DatabaseSchema {
       instagram: 'https://instagram.com/apexenterprises',
       youtube: 'https://youtube.com/@apexenterprises'
     },
-    callToActionPhone: '+91 98201 54321',
-    callToActionWhatsapp: '+919820154321',
+    callToActionPhone: '+91 77601 31002',
+    callToActionWhatsapp: '+917760131002',
     updatedAt: new Date().toISOString()
   };
 
